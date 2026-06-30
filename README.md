@@ -26,7 +26,8 @@
 ```
 
 - **(A) 검색 입구 링크**: `config/sites.json`의 `search_url` 템플릿에 키워드를 끼워 만든 URL. 네트워크/외부 의존 없음 → 항상 표시.
-- **(B) 상위 결과 추출**: 검색 페이지 HTML을 받아 링크 패턴(정규식)으로 상위 N개를 긁어옴. **베스트 에포트(best-effort)** — 실패/차단 시 해당 사이트의 B만 비고 A는 그대로 둠.
+- **(B) 상위 이미지**: 등록 사이트(`domain`)에 한정해 **Google Programmable Search(이미지 검색)**로 키워드별 상위 N개 이미지를 가져옴. **베스트 에포트(best-effort)** — 키 미설정·할당량 초과·결과 없음이면 해당 영역만 비고 A는 그대로 둠.
+  - (지정 사이트 직접 크롤링은 JS 렌더링 + 데이터센터 IP 차단 + 약관 때문에 서버에서 불가 → Google 검색 API를 경유)
 
 ---
 
@@ -45,7 +46,7 @@ reference-finder/
 │   ├── __init__.py
 │   ├── keywords.py           # 이미지 → 키워드 (Claude vision, JSON-only)
 │   ├── sites.py              # config 로드 + 검색 입구 링크(A) 생성
-│   └── extractors.py         # 상위 결과(B) best-effort 추출
+│   └── images.py             # 키워드별 상위 이미지(B) — Google Programmable Search
 ├── templates/
 │   └── index.html            # 업로드 폼 + 결과 카드 UI (바닐라 JS)
 └── static/                   # (선택) 정적 파일
@@ -66,12 +67,25 @@ pip install -r requirements.txt
 
 ### 2. API 키 설정
 
-[Anthropic Console](https://console.anthropic.com/)에서 API 키를 발급받아 `.env`에 넣습니다.
+`.env` 파일에 키를 넣습니다. 기능별로 필요한 키가 다릅니다:
+
+| 키 | 용도 | 없으면 |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | 이미지 → 키워드 5개 자동 추출 | 이미지 분석 불가 (키워드 직접 입력은 가능) |
+| `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` | 키워드별 상위 이미지(B) | 이미지 영역만 비고 검색 링크(A)는 정상 |
 
 ```bash
 cp .env.example .env
-# .env 파일을 열어 ANTHROPIC_API_KEY=sk-ant-... 입력
+# .env 를 열어 키 입력
 ```
+
+**Anthropic 키**: [console.anthropic.com](https://console.anthropic.com/) → API Keys → Create Key.
+
+**Google 검색 키 (무료, 하루 100회)**:
+1. [Programmable Search Engine](https://programmablesearchengine.google.com/) → **Add** → **"Search the entire web" 켜기** → 만든 뒤 **검색엔진 ID(cx)** 복사 → `GOOGLE_CSE_ID`
+2. [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services** → **"Custom Search API"** 사용 설정 → **Credentials**에서 API 키 발급 → `GOOGLE_API_KEY`
+
+> 무료 한도는 하루 100 쿼리입니다. 한 번 분석에 `키워드 5 × 사이트 4 = 20 쿼리`를 쓰므로 **하루 약 5회** 분석 가능. (키워드 수·사이트 수를 줄이면 더 많이 가능)
 
 ### 3. 서버 실행
 
@@ -138,19 +152,15 @@ git push -u origin main
 
 ```jsonc
 {
-  "max_keywords": 3,          // 뽑을 키워드 개수
-  "results_per_site": 5,      // (B) 사이트당 가져올 상위 결과 개수
-  "request_timeout": 8,       // (B) HTTP 요청 타임아웃(초)
+  "max_keywords": 5,          // 이미지에서 뽑을 키워드 개수
+  "results_per_site": 3,      // (B) 사이트당 보여줄 상위 이미지 개수
+  "request_timeout": 8,       // (B) Google 요청 타임아웃(초)
   "sites": [
     {
       "name": "Pinterest",
-      "search_url": "https://www.pinterest.com/search/pins/?q={query}",  // {query} 자리에 키워드가 URL 인코딩되어 들어감
-      "homepage": "https://www.pinterest.com",
-      "extract": {                          // (B) 설정. 생략하거나 enabled:false 면 A만 제공
-        "enabled": true,
-        "link_pattern": "/pin/\\d+/",       // 검색 HTML에서 결과 링크로 인식할 정규식
-        "base_url": "https://www.pinterest.com"  // 상대경로를 절대 URL로 만들 때 사용
-      }
+      "search_url": "https://kr.pinterest.com/search/pins/?q={query}",  // (A) {query} 자리에 키워드가 URL 인코딩되어 들어감
+      "homepage": "https://kr.pinterest.com",
+      "domain": "pinterest.com"   // (B) 이 도메인에 한정해 Google 이미지 검색. 없으면 그 사이트는 A 링크만
     }
   ]
 }
@@ -163,15 +173,14 @@ git push -u origin main
   "name": "Dribbble",
   "search_url": "https://dribbble.com/search/shots/popular?q={query}",
   "homepage": "https://dribbble.com",
-  "extract": {
-    "enabled": true,
-    "link_pattern": "/shots/\\d+-[A-Za-z0-9\\-]+",
-    "base_url": "https://dribbble.com"
-  }
+  "domain": "dribbble.com"
 }
 ```
 
-> **추출(B)을 켜기 어렵다면** `extract`를 빼거나 `"enabled": false`로 두세요. 그러면 그 사이트는 검색 입구 링크(A)만 제공합니다 — 가장 안전한 모드입니다.
+- `search_url`만 있고 `domain`이 없으면 → 그 사이트는 **검색 입구 링크(A)만** 제공 (이미지 영역 없음).
+- `domain`까지 넣으면 → Google 이미지 검색으로 **상위 이미지(B)**도 시도.
+
+> ⚠️ 사이트가 늘수록 Google 쿼리(키워드 × 사이트)가 늘어 무료 한도(하루 100)를 빨리 씁니다.
 
 ---
 
@@ -179,18 +188,17 @@ git push -u origin main
 
 이 부분이 가장 중요합니다. 꼭 읽어주세요.
 
-### 1. (B) 상위 결과 추출은 본질적으로 깨지기 쉽다
-- Pinterest, Behance 같은 사이트는 검색 결과를 **JavaScript로 렌더링**합니다. 서버가 받는 첫 HTML에는 결과 카드가 없을 수 있어, 정규식 추출이 **자주 빈 결과를 반환합니다 — 이는 버그가 아니라 설계상 예상된 동작**입니다. 이때도 A(검색 입구)는 정상 동작합니다.
-- 사이트가 HTML 구조를 바꾸면 `link_pattern`이 안 맞을 수 있습니다. → `config/sites.json`의 정규식만 고치면 됩니다.
+### 1. (B) 상위 이미지는 Google 검색 결과에 의존한다
+- 지정 사이트(Pinterest·Behance·Cosmos·Savee 등)는 **JS 렌더링 + 데이터센터 IP 차단 + 약관** 때문에 서버에서 직접 크롤링이 사실상 불가능합니다. 그래서 **Google Programmable Search(이미지 검색)를 경유**해 해당 도메인에 한정한 상위 이미지를 가져옵니다.
+- Google이 그 사이트를 색인한 범위 안에서만 결과가 나옵니다. 색인이 적은 사이트(예: 신생 SPA)는 결과가 비거나 적을 수 있습니다 — **버그가 아니라 예상된 동작**이며, 이때도 A(검색 입구 링크)는 정상입니다.
+- 무료 한도(하루 100 쿼리) 초과 시 그날은 이미지가 비고 A만 나옵니다.
 
-### 2. 스크래핑은 사이트 약관(ToS)에 저촉될 수 있다
-- 많은 사이트가 약관에서 **자동 수집/스크래핑을 제한**합니다. (B) 기능은 검색 결과 페이지를 자동으로 받아 파싱하므로, 사이트 약관과 `robots.txt`를 **반드시 직접 확인**하고 본인 책임하에 사용하세요.
-- 가장 안전한 형태는 (A)만 쓰는 것입니다. (A)는 사용자가 직접 클릭해 그 사이트에서 검색하도록 **안내 링크만 제공**하므로 스크래핑이 아닙니다.
-- 공식 API가 있는 사이트(예: Pinterest API, Behance API)는 가능하면 스크래핑 대신 공식 API로 (B)를 구현하는 것을 권장합니다.
+### 2. 약관(ToS)
+- 이 앱은 사이트를 직접 스크래핑하지 않고 **Google 검색 API**를 사용합니다(약관 측면에서 직접 크롤링보다 안전). 그래도 표시되는 이미지의 저작권/사용 범위는 각 출처를 따르므로, 결과 이미지를 재배포·상업적 사용할 때는 원 출처의 라이선스를 확인하세요.
+- (A) 검색 입구 링크는 사용자가 직접 그 사이트에서 검색하도록 **안내 링크만 제공**하므로 수집이 아닙니다 — 가장 안전합니다.
 
-### 3. 요청 매너 / 차단
-- 과도한 요청은 IP 차단을 부릅니다. 기본적으로 타임아웃을 짧게 두고, 사이트당 1회만 요청합니다. 대량 사용 시 캐싱·요청 간 지연·동시성 제한을 추가하세요.
-- 일부 사이트는 데이터센터/CI IP를 차단합니다. (참고: 기존 모니터 프로젝트에서도 `yozm.wishket.com`, `contentformcontext.com` 등이 차단된 사례가 있었습니다.)
+### 3. 호스트 IP
+- 일부 사이트는 데이터센터/CI IP를 차단합니다. 이 앱은 사이트에 직접 붙지 않고 Google API만 호출하므로 이 영향은 적습니다. (참고: 기존 모니터 프로젝트에서 `yozm.wishket.com`, `contentformcontext.com` 등이 차단된 사례가 있었습니다.)
 
 ### 4. Claude API 비용·안정성
 - 이미지 1장당 vision 요청 1회가 발생합니다(과금). 업로드 크기·횟수에 유의하세요.
@@ -205,10 +213,10 @@ git push -u origin main
 
 ## 동작 보장 요약
 
-| 상황 | A(검색 입구) | B(상위 결과) | 앱 |
+| 상황 | A(검색 입구) | B(상위 이미지) | 앱 |
 |---|---|---|---|
-| 정상 | ✅ | ✅ | 정상 |
-| 사이트가 JS 렌더링이라 HTML에 결과 없음 | ✅ | ⬜ 빈 결과 | 정상 |
-| 사이트 구조 변경/패턴 불일치 | ✅ | ⬜ 빈 결과 | 정상 |
-| 사이트가 요청 차단/타임아웃 | ✅ | ⬜ 빈 결과 | 정상 |
-| Claude 키워드 추출 실패 | — | — | 에러 메시지 반환(죽지 않음) |
+| 정상 (키 설정됨) | ✅ | ✅ | 정상 |
+| Google 키 미설정 | ✅ | ⬜ 안내문 | 정상 |
+| Google 무료 한도 초과/오류 | ✅ | ⬜ 빈 결과 | 정상 |
+| 해당 사이트 색인 결과 없음 | ✅ | ⬜ 빈 결과 | 정상 |
+| Claude 키워드 추출 실패(키 없음 등) | — | — | 에러 메시지 반환(죽지 않음) |

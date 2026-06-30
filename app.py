@@ -12,7 +12,7 @@ import re
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 
-from reference_finder.extractors import extract_top_results
+from reference_finder.images import fetch_site_images, google_keys_present
 from reference_finder.keywords import KeywordError, extract_keywords
 from reference_finder.sites import build_search_url, load_config
 
@@ -28,34 +28,36 @@ def index():
 
 
 def _build_results(keywords: list[str], config: dict) -> list[dict]:
-    """키워드 목록 → 키워드 × 사이트 결과. (A 항상, B best-effort) — 외부 비용 없음."""
-    per_site = int(config.get("results_per_site", 5))
+    """키워드 목록 → 키워드 × 사이트 결과.
+
+    각 사이트마다:
+      - search_url : 검색 입구 링크(A). 항상 생성 (외부 의존 없음).
+      - images     : 등록 사이트에서 키워드로 검색한 상위 N개 이미지(Google). best-effort.
+    이미지 검색이 실패해도 빈 리스트만 반환 → A 링크와 앱은 그대로.
+    """
+    per_site = int(config.get("results_per_site", 3))
     timeout = int(config.get("request_timeout", 8))
     sites = config.get("sites", [])
+    images_enabled = google_keys_present()
 
     results = []
     for keyword in keywords:
         site_results = []
         for site in sites:
             search_url = build_search_url(site["search_url"], keyword)  # (A) 항상 성공
+            domain = site.get("domain")
 
-            # (B) 추출은 실패해도 [] 만 반환 (예외 안 던짐)
-            items = extract_top_results(
-                search_url,
-                site.get("extract"),
-                limit=per_site,
-                timeout=timeout,
-            )
+            images = fetch_site_images(
+                keyword, domain, limit=per_site, timeout=timeout
+            )  # (B) 실패해도 [] (예외 안 던짐)
 
             site_results.append(
                 {
                     "name": site["name"],
                     "homepage": site.get("homepage"),
                     "search_url": search_url,
-                    "items": items,
-                    "extraction_attempted": bool(
-                        site.get("extract", {}).get("enabled")
-                    ),
+                    "images": images,
+                    "image_search_enabled": bool(images_enabled and domain),
                 }
             )
 
@@ -90,7 +92,7 @@ def search():
             "error": "ANTHROPIC_API_KEY 가 없습니다. 무료로 쓰려면 아래 '키워드 직접 입력'을 사용하세요."
         }), 500
 
-    n = int(config.get("max_keywords", 3))
+    n = int(config.get("max_keywords", 5))
     try:
         keywords = extract_keywords(image_bytes, media_type, n=n)
     except KeywordError as exc:
@@ -120,7 +122,7 @@ def search_keywords():
     except (OSError, ValueError) as exc:
         return jsonify({"error": f"설정 파일을 읽을 수 없습니다: {exc}"}), 500
 
-    n = int(config.get("max_keywords", 3))
+    n = int(config.get("max_keywords", 5))
     keywords = keywords[:n]
 
     return jsonify({"keywords": keywords, "results": _build_results(keywords, config)})

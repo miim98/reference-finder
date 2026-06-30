@@ -59,11 +59,23 @@
     background: var(--accent-soft); padding: 8px 12px; border-radius: 8px; font-size: .88rem;
   }
   .enter-link:hover { text-decoration: underline; }
-  .items { list-style: none; padding: 0; margin: 14px 0 0; }
-  .items li { margin: 0 0 6px; font-size: .9rem; }
-  .items a { color: var(--ink); text-decoration: none; }
-  .items a:hover { color: var(--accent); text-decoration: underline; }
   .empty { color: var(--muted); font-size: .82rem; margin-top: 12px; font-style: italic; }
+
+  /* 키워드 안내 영역 */
+  .kw-guide { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; margin-top: 28px; }
+  .kw-guide h2 { font-size: .95rem; margin: 0 0 12px; color: var(--muted); font-weight: 700; }
+  .kw-guide .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .kw-guide .tag {
+    background: var(--accent-soft); color: var(--accent); font-weight: 700;
+    padding: 6px 14px; border-radius: 999px; font-size: .92rem; cursor: pointer; border: 0;
+  }
+  .kw-guide .tag:hover { background: var(--accent); color: #fff; }
+
+  /* 이미지 결과 영역 */
+  .thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+  .thumb { display: block; aspect-ratio: 1 / 1; border-radius: 8px; overflow: hidden; background: #eef1f5; border: 1px solid var(--border); }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb:hover { outline: 2px solid var(--accent); }
 
   .divider { display: flex; align-items: center; gap: 14px; margin: 30px 0 20px; color: var(--muted); font-size: .85rem; }
   .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
@@ -78,7 +90,7 @@
 <body>
 <div class="wrap">
   <h1>레퍼런스 찾기</h1>
-  <p class="sub">이미지를 올리면 핵심 키워드 3개를 뽑아 Pinterest·Behance 검색 링크를 만들어 드립니다.</p>
+  <p class="sub">이미지를 올리면 키워드 5개를 자동으로 뽑고, 등록한 사이트에서 키워드별 상위 이미지를 보여줍니다.</p>
 
   <form id="form">
     <label class="uploader" id="drop">
@@ -150,23 +162,52 @@
     );
   }
 
+  function slug(s) { return "kw-" + String(s).replace(/[^a-zA-Z0-9]/g, "-").toLowerCase(); }
+
   function render(data) {
     output.innerHTML = "";
+    const keywords = data.keywords || [];
+
+    // ① 키워드 안내 영역 (텍스트) — 클릭하면 해당 결과로 스크롤
+    const guide = document.createElement("div");
+    guide.className = "kw-guide";
+    guide.innerHTML =
+      `<h2>뽑힌 키워드 ${keywords.length}개</h2>
+       <div class="tags">` +
+      keywords.map((k) => `<button class="tag" data-target="${slug(k)}">${esc(k)}</button>`).join("") +
+      `</div>`;
+    guide.querySelectorAll(".tag").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const el = document.getElementById(btn.dataset.target);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      })
+    );
+    output.appendChild(guide);
+
+    // ② 키워드별 이미지 결과 영역
     data.results.forEach((block) => {
       const wrap = document.createElement("div");
       wrap.className = "kw-block";
+      wrap.id = slug(block.keyword);
 
       const cards = block.sites.map((site) => {
         let inner = "";
-        if (site.items && site.items.length) {
+        if (site.images && site.images.length) {
           inner =
-            '<ul class="items">' +
-            site.items
-              .map((it) => `<li>· <a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.label)}</a></li>`)
+            '<div class="thumbs">' +
+            site.images
+              .map((im) =>
+                `<a class="thumb" href="${esc(im.link)}" target="_blank" rel="noopener" title="${esc(im.title)}">
+                   <img src="${esc(im.image)}" alt="${esc(im.title)}" loading="lazy"
+                        onerror="this.closest('.thumb').style.display='none'" />
+                 </a>`
+              )
               .join("") +
-            "</ul>";
-        } else if (site.extraction_attempted) {
-          inner = '<div class="empty">상위 결과를 가져오지 못했습니다 — 위 검색 링크로 직접 확인하세요.</div>';
+            "</div>";
+        } else if (site.image_search_enabled) {
+          inner = '<div class="empty">이 사이트에서 상위 이미지를 찾지 못했습니다 — 위 검색 링크로 직접 확인하세요.</div>';
+        } else {
+          inner = '<div class="empty">이미지 검색이 꺼져 있습니다(Google 키 미설정) — 검색 링크로 확인하세요.</div>';
         }
         return `
           <div class="card">
