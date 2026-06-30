@@ -5,12 +5,12 @@
   "sites": [
     {
       "name": "Pinterest",
-      "search_url": "https://www.pinterest.com/search/pins/?q={query}",
-      "homepage": "https://www.pinterest.com",
+      "search_url": "https://kr.pinterest.com/search/pins/?q={query}",
+      "homepage": "https://kr.pinterest.com",
       "extract": {
         "enabled": true,
         "link_pattern": "/pin/\\d+/",
-        "base_url": "https://www.pinterest.com"
+        "base_url": "https://kr.pinterest.com"
       }
     },
     {
@@ -22,6 +22,16 @@
         "link_pattern": "/gallery/\\d+/[A-Za-z0-9\\-]+",
         "base_url": "https://www.behance.net"
       }
+    },
+    {
+      "name": "Cosmos",
+      "search_url": "https://www.cosmos.so/search?q={query}",
+      "homepage": "https://www.cosmos.so"
+    },
+    {
+      "name": "Savee",
+      "search_url": "https://savee.com/search/?q={query}",
+      "homepage": "https://savee.com"
     }
   ]
 }
