@@ -1,0 +1,15 @@
+# Render 배포 설정 (Blueprint).
+# 깃허브 repo 를 Render 에 연결하면 이 파일을 읽어 자동으로 웹 서비스를 만든다.
+# https://render.com → New + → Blueprint → 이 repo 선택.
+services:
+  - type: web
+    name: reference-finder
+    runtime: python
+    plan: free                 # 무료 플랜 (일정 시간 미사용 시 슬립 → 첫 요청 시 콜드스타트)
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: ANTHROPIC_API_KEY
+        sync: false            # 비밀값 → Render 대시보드에서 직접 입력 (코드/깃허브에 안 올라감)

@@ -1,0 +1,27 @@
+{
+  "max_keywords": 3,
+  "results_per_site": 5,
+  "request_timeout": 8,
+  "sites": [
+    {
+      "name": "Pinterest",
+      "search_url": "https://www.pinterest.com/search/pins/?q={query}",
+      "homepage": "https://www.pinterest.com",
+      "extract": {
+        "enabled": true,
+        "link_pattern": "/pin/\\d+/",
+        "base_url": "https://www.pinterest.com"
+      }
+    },
+    {
+      "name": "Behance",
+      "search_url": "https://www.behance.net/search/projects?search={query}",
+      "homepage": "https://www.behance.net",
+      "extract": {
+        "enabled": true,
+        "link_pattern": "/gallery/\\d+/[A-Za-z0-9\\-]+",
+        "base_url": "https://www.behance.net"
+      }
+    }
+  ]
+}
