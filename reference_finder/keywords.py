@@ -1,29 +1,32 @@
-"""이미지 → 핵심 키워드 추출 (Claude vision, JSON-only 프롬프트).
+"""이미지 → 핵심 키워드 추출 (Google Gemini vision, 무료 API).
 
-요청대로 모델은 claude-sonnet-4-6 을 사용하고, 응답을 JSON 으로만 받도록
-프롬프트를 구성한다. 모델이 가끔 코드펜스나 설명을 덧붙일 수 있으므로
-응답을 방어적으로 파싱한다(코드펜스 제거 + 첫 '{' ~ 마지막 '}' 추출).
+이미지를 Gemini 에 보내 핵심 키워드 N개를 JSON 으로만 받는다.
+무료 한도 안에서 카드 없이 사용 가능. (REST 직접 호출 → 추가 의존성 없음)
+
+응답이 JSON 으로 오도록 responseMimeType 을 지정하고, 그래도 모델이 코드펜스나
+설명을 붙일 수 있으니 방어적으로 파싱한다.
 """
 
 from __future__ import annotations
 
 import base64
 import json
+import os
 import re
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:  # 타입 힌트용 — 실제 import 는 함수 안에서 (무료 모드는 anthropic 불필요)
-    import anthropic
+import requests
 
-MODEL = "claude-sonnet-4-6"
+# 무료 vision 모델 (필요하면 GEMINI_MODEL 환경변수로 교체)
+MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
-# 허용 이미지 타입 (확장자/콘텐츠타입 → Anthropic media_type)
+# 허용 이미지 타입 (콘텐츠타입 → Gemini mime_type)
 SUPPORTED_MEDIA_TYPES = {
     "image/png": "image/png",
     "image/jpeg": "image/jpeg",
     "image/jpg": "image/jpeg",
-    "image/gif": "image/gif",
     "image/webp": "image/webp",
+    "image/gif": "image/gif",
 }
 
 
@@ -33,13 +36,12 @@ class KeywordError(Exception):
 
 def _build_prompt(n: int) -> str:
     return (
-        f"You are a visual reference assistant. Look at the image and extract exactly "
-        f"{n} short search keywords that best describe its visual style, subject, mood, "
-        f"and design characteristics. The keywords will be used to search design "
-        f"reference sites like Pinterest and Behance.\n\n"
+        f"Look at this image and extract exactly {n} short search keywords that best "
+        f"describe its visual style, subject, mood, color, and design characteristics. "
+        f"The keywords will be used to search design reference sites like Pinterest and "
+        f"Behance.\n"
         f"Rules:\n"
-        f"- Respond with JSON ONLY. No prose, no markdown, no code fences.\n"
-        f'- Format: {{"keywords": ["keyword1", "keyword2", "keyword3"]}}\n'
+        f'- Respond with JSON only: {{"keywords": ["k1", "k2", ...]}}\n'
         f"- Each keyword: 1-3 words, English, lowercase, search-friendly.\n"
         f"- Exactly {n} keywords."
     )
@@ -47,14 +49,12 @@ def _build_prompt(n: int) -> str:
 
 def _parse_keywords(text: str, n: int) -> list[str]:
     """모델 응답 문자열에서 keywords 리스트를 방어적으로 추출한다."""
-    raw = text.strip()
+    raw = (text or "").strip()
 
-    # 코드펜스 제거 (```json ... ``` 또는 ``` ... ```)
     fence = re.match(r"^```(?:json)?\s*(.*?)\s*```$", raw, re.DOTALL)
     if fence:
         raw = fence.group(1).strip()
 
-    # 첫 '{' ~ 마지막 '}' 만 떼어 파싱 시도
     start, end = raw.find("{"), raw.rfind("}")
     candidate = raw[start : end + 1] if start != -1 and end != -1 else raw
 
@@ -67,7 +67,6 @@ def _parse_keywords(text: str, n: int) -> list[str]:
     if not isinstance(keywords, list) or not keywords:
         raise KeywordError("응답에 'keywords' 배열이 없습니다.")
 
-    # 문자열만 남기고 정리/중복 제거
     cleaned: list[str] = []
     for kw in keywords:
         if isinstance(kw, str) and kw.strip():
@@ -81,60 +80,60 @@ def _parse_keywords(text: str, n: int) -> list[str]:
     return cleaned[:n]
 
 
-def extract_keywords(
-    image_bytes: bytes,
-    media_type: str,
-    *,
-    n: int = 3,
-    client: anthropic.Anthropic | None = None,
-) -> list[str]:
-    """이미지 바이트에서 키워드 n개를 추출한다.
+def extract_keywords(image_bytes: bytes, media_type: str, *, n: int = 5) -> list[str]:
+    """이미지 바이트에서 키워드 n개를 추출한다 (Gemini).
 
     실패 시 KeywordError 를 던진다(호출부에서 잡아 사용자에게 메시지로 전달).
     """
     resolved_type = SUPPORTED_MEDIA_TYPES.get(media_type.lower())
     if resolved_type is None:
         raise KeywordError(
-            f"지원하지 않는 이미지 타입입니다: {media_type} "
-            f"(지원: PNG, JPEG, GIF, WebP)"
+            f"지원하지 않는 이미지 타입입니다: {media_type} (지원: PNG, JPEG, WebP, GIF)"
         )
 
-    try:
-        import anthropic  # 이미지 분석 시에만 필요 (무료 키워드 모드는 불필요)
-    except ImportError as exc:
-        raise KeywordError(
-            "anthropic 패키지가 없습니다. 'pip install -r requirements.txt' 후 사용하세요."
-        ) from exc
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise KeywordError("GEMINI_API_KEY 가 설정되지 않았습니다. Render 환경변수를 확인하세요.")
 
-    client = client or anthropic.Anthropic()
     image_b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
+    body = {
+        "contents": [
+            {
+                "parts": [
+                    {"inline_data": {"mime_type": resolved_type, "data": image_b64}},
+                    {"text": _build_prompt(n)},
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": 256,
+            "responseMimeType": "application/json",
+        },
+    }
 
     try:
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=256,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": resolved_type,
-                                "data": image_b64,
-                            },
-                        },
-                        {"type": "text", "text": _build_prompt(n)},
-                    ],
-                }
-            ],
+        resp = requests.post(
+            ENDPOINT.format(model=MODEL),
+            params={"key": api_key},
+            json=body,
+            timeout=30,
         )
-    except anthropic.APIError as exc:
-        raise KeywordError(f"Claude API 호출 실패: {exc}") from exc
+    except requests.RequestException as exc:
+        raise KeywordError(f"Gemini 호출 실패: {exc}") from exc
 
-    text = next((b.text for b in response.content if b.type == "text"), "")
-    if not text:
-        raise KeywordError("Claude 응답이 비어 있습니다.")
+    if resp.status_code != 200:
+        detail = ""
+        try:
+            detail = resp.json().get("error", {}).get("message", "")
+        except ValueError:
+            detail = resp.text[:200]
+        raise KeywordError(f"Gemini 오류({resp.status_code}): {detail}")
+
+    try:
+        data = resp.json()
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+    except (ValueError, KeyError, IndexError, TypeError) as exc:
+        raise KeywordError("Gemini 응답을 해석하지 못했습니다(차단 또는 빈 응답).") from exc
 
     return _parse_keywords(text, n)

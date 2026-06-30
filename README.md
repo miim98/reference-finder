@@ -1,6 +1,6 @@
 # 레퍼런스 찾기 (Reference Finder)
 
-이미지를 업로드하면 Claude가 **핵심 키워드 3개**를 뽑고, 등록된 레퍼런스 사이트(기본: Pinterest, Behance)에서
+이미지를 업로드하면 Google Gemini가 **핵심 키워드 5개**를 뽑고, 등록된 레퍼런스 사이트(기본: Pinterest, Behance, Cosmos, Savee)에서
 키워드별로 **검색 입구 링크**를 만들어 줍니다. 가능하면 검색 결과 상위 항목의 개별 링크도 함께 가져옵니다.
 
 핵심 설계 원칙은 **"깨져도 죽지 않는다"** 입니다. 사이트 구조가 바뀌어 결과 추출(B)이 실패해도,
@@ -14,7 +14,7 @@
 [이미지 업로드]
       │
       ▼
-[Claude API (claude-sonnet-4-6)]  ── 이미지 → 키워드 3개 (JSON only)
+[Google Gemini (gemini-2.0-flash)]  ── 이미지 → 키워드 5개 (JSON only)
       │
       ▼
 [각 키워드 × 각 사이트]
@@ -37,14 +37,14 @@
 reference-finder/
 ├── README.md
 ├── requirements.txt
-├── .env.example              # ANTHROPIC_API_KEY 등 환경변수 예시
+├── .env.example              # GEMINI_API_KEY, GOOGLE_API_KEY 등 환경변수 예시
 ├── .gitignore
 ├── config/
 │   └── sites.json            # 레퍼런스 사이트 목록 + 추출 설정 (여기만 고치면 사이트 추가/삭제)
 ├── app.py                    # Flask 진입점 (라우팅, 에러 핸들링)
 ├── reference_finder/
 │   ├── __init__.py
-│   ├── keywords.py           # 이미지 → 키워드 (Claude vision, JSON-only)
+│   ├── keywords.py           # 이미지 → 키워드 (Gemini vision, JSON-only)
 │   ├── sites.py              # config 로드 + 검색 입구 링크(A) 생성
 │   └── images.py             # 키워드별 상위 이미지(B) — Google Programmable Search
 ├── templates/
@@ -67,11 +67,11 @@ pip install -r requirements.txt
 
 ### 2. API 키 설정
 
-`.env` 파일에 키를 넣습니다. 기능별로 필요한 키가 다릅니다:
+`.env` 파일에 키를 넣습니다. **둘 다 무료**입니다. 기능별로 필요한 키가 다릅니다:
 
 | 키 | 용도 | 없으면 |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | 이미지 → 키워드 5개 자동 추출 | 이미지 분석 불가 (키워드 직접 입력은 가능) |
+| `GEMINI_API_KEY` | 이미지 → 키워드 5개 자동 추출 (Google Gemini, 무료) | 이미지 업로드 분석 불가 (키워드 직접 입력은 가능) |
 | `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` | 키워드별 상위 이미지(B) | 이미지 영역만 비고 검색 링크(A)는 정상 |
 
 ```bash
@@ -79,13 +79,13 @@ cp .env.example .env
 # .env 를 열어 키 입력
 ```
 
-**Anthropic 키**: [console.anthropic.com](https://console.anthropic.com/) → API Keys → Create Key.
+**Gemini 키 (무료, 카드 불필요)**: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) → **Create API key** → `GEMINI_API_KEY`
 
 **Google 검색 키 (무료, 하루 100회)**:
-1. [Programmable Search Engine](https://programmablesearchengine.google.com/) → **Add** → **"Search the entire web" 켜기** → 만든 뒤 **검색엔진 ID(cx)** 복사 → `GOOGLE_CSE_ID`
-2. [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services** → **"Custom Search API"** 사용 설정 → **Credentials**에서 API 키 발급 → `GOOGLE_API_KEY`
+1. [Programmable Search Engine](https://programmablesearchengine.google.com/) → 검색엔진 생성(이미지 검색 ON) → **검색엔진 ID(cx)** → `GOOGLE_CSE_ID`
+2. [Google Cloud Console](https://console.cloud.google.com/) → **"Custom Search API"** 사용 설정 → **Credentials**에서 API 키 발급 → `GOOGLE_API_KEY`
 
-> 무료 한도는 하루 100 쿼리입니다. 한 번 분석에 `키워드 5 × 사이트 4 = 20 쿼리`를 쓰므로 **하루 약 5회** 분석 가능. (키워드 수·사이트 수를 줄이면 더 많이 가능)
+> Google 검색 무료 한도는 하루 100 쿼리. 한 번 분석에 `키워드 5 × 사이트 4 = 20 쿼리`를 쓰므로 **하루 약 5회** 분석 가능. (키워드 수·사이트 수를 줄이면 더 많이 가능)
 
 ### 3. 서버 실행
 
@@ -95,17 +95,11 @@ python app.py
 
 브라우저에서 http://127.0.0.1:5000 접속 → 이미지 업로드 → 결과 확인.
 
-### 무료로 쓰기 (API 키·과금 없음)
-
-돈이 드는 부분은 **이미지 → 키워드 추출(Claude vision)** 단 한 곳뿐입니다.
-검색 입구 링크(A)와 결과 추출(B)은 전부 무료입니다.
+### 키 없이 맛보기
 
 - **키워드 직접 입력 모드**: 화면 아래 "또는 무료로 — 키워드 직접 입력"에 키워드를
-  콤마로 넣으면 Claude 호출 없이 바로 레퍼런스 링크가 생성됩니다.
-  → `ANTHROPIC_API_KEY` 가 없어도, `anthropic` 패키지가 없어도 동작합니다.
-  (이 모드만 쓸 거면 2단계 API 키 설정은 건너뛰어도 됩니다.)
-- **무료 크레딧**: 신규 Anthropic 계정의 평가판 크레딧이 있으면 이미지 자동 분석도
-  그 한도 안에서 무료입니다. (콘솔 Billing/Plans 확인)
+  콤마로 넣으면 Gemini 호출 없이 바로 결과가 생성됩니다.
+  → `GEMINI_API_KEY` 가 없어도 동작합니다(이미지 영역은 Google 키가 있어야 채워짐).
 
 ---
 
@@ -136,7 +130,7 @@ git push -u origin main
 
 1. https://render.com 가입(깃허브 계정으로) → **New +** → **Blueprint**
 2. 방금 올린 repo 선택 → repo 안의 `render.yaml`을 자동 인식
-3. 배포 중 **Environment → ANTHROPIC_API_KEY** 에 키 입력 (이미지 분석 쓸 때만 필요. 키워드 직접 입력 모드만 쓸 거면 빈 값이어도 됨)
+3. 배포 중 **Environment** 에 `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `GOOGLE_CSE_ID` 입력 (전부 무료 키)
 4. 배포 완료되면 `https://reference-finder-xxxx.onrender.com` 주소로 UI 접속
 
 이후 코드를 고쳐 `git push` 하면 Render가 자동으로 다시 배포합니다.
@@ -200,10 +194,10 @@ git push -u origin main
 ### 3. 호스트 IP
 - 일부 사이트는 데이터센터/CI IP를 차단합니다. 이 앱은 사이트에 직접 붙지 않고 Google API만 호출하므로 이 영향은 적습니다. (참고: 기존 모니터 프로젝트에서 `yozm.wishket.com`, `contentformcontext.com` 등이 차단된 사례가 있었습니다.)
 
-### 4. Claude API 비용·안정성
-- 이미지 1장당 vision 요청 1회가 발생합니다(과금). 업로드 크기·횟수에 유의하세요.
-- 키워드 응답은 JSON-only 프롬프트로 받지만, 모델이 가끔 코드펜스(```)나 설명을 붙일 수 있어 **방어적으로 파싱**합니다(코드펜스 제거 + 첫 `{`~마지막 `}` 추출). 파싱 실패 시 명확한 에러를 반환하고 앱은 죽지 않습니다.
-- 더 강하게 보장하려면 Structured Outputs(`output_config.format`)로 스키마를 강제할 수 있습니다. 현재는 요청대로 "프롬프트 기반 JSON"을 기본값으로 둡니다.
+### 4. Gemini API 비용·안정성
+- 이미지 분석은 **Google Gemini 무료 API**(기본 `gemini-2.0-flash`)를 사용합니다. 무료 한도(분당/일 호출 수 제한) 안에서 카드 없이 동작하며, 한도 초과 시 에러 메시지를 반환하고 앱은 죽지 않습니다.
+- 응답은 `responseMimeType: application/json`으로 JSON을 강제하고, 그래도 모델이 코드펜스(```)를 붙일 수 있어 **방어적으로 파싱**합니다(코드펜스 제거 + 첫 `{`~마지막 `}` 추출). 파싱 실패 시 명확한 에러를 반환합니다.
+- 모델은 `GEMINI_MODEL` 환경변수로 교체할 수 있습니다.
 
 ### 5. 업로드 보안
 - 업로드 이미지는 메모리에서만 처리하고 디스크에 저장하지 않습니다.
@@ -219,4 +213,4 @@ git push -u origin main
 | Google 키 미설정 | ✅ | ⬜ 안내문 | 정상 |
 | Google 무료 한도 초과/오류 | ✅ | ⬜ 빈 결과 | 정상 |
 | 해당 사이트 색인 결과 없음 | ✅ | ⬜ 빈 결과 | 정상 |
-| Claude 키워드 추출 실패(키 없음 등) | — | — | 에러 메시지 반환(죽지 않음) |
+| Gemini 키워드 추출 실패(키 없음·한도 초과 등) | — | — | 에러 메시지 반환(죽지 않음) |

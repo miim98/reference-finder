@@ -68,7 +68,7 @@ def _build_results(keywords: list[str], config: dict) -> list[dict]:
 
 @app.route("/api/search", methods=["POST"])
 def search():
-    """이미지 업로드 → Claude vision 으로 키워드 추출 (이 경로만 과금)."""
+    """이미지 업로드 → Gemini vision 으로 키워드 5개 자동 추출."""
     # 1) 업로드 검증
     file = request.files.get("image")
     if file is None or not file.filename:
@@ -87,9 +87,9 @@ def search():
         return jsonify({"error": f"설정 파일을 읽을 수 없습니다: {exc}"}), 500
 
     # 3) 키워드 추출 (실패하면 여기서 중단하고 에러 반환 — 단, 앱은 죽지 않음)
-    if not os.getenv("ANTHROPIC_API_KEY"):
+    if not os.getenv("GEMINI_API_KEY"):
         return jsonify({
-            "error": "ANTHROPIC_API_KEY 가 없습니다. 무료로 쓰려면 아래 '키워드 직접 입력'을 사용하세요."
+            "error": "GEMINI_API_KEY 가 없습니다. Render 환경변수에 무료 Gemini 키를 넣어주세요."
         }), 500
 
     n = int(config.get("max_keywords", 5))
