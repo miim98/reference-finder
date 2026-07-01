@@ -11,7 +11,9 @@ import os
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 
+from reference_finder.images import fetch_keyword_images, images_enabled
 from reference_finder.keywords import KeywordError, extract_keywords
+from reference_finder.sites import build_search_url, load_config
 
 load_dotenv()
 
@@ -46,6 +48,36 @@ def keywords():
         return jsonify({"error": str(exc)}), 502
 
     return jsonify({"keywords": result})
+
+
+@app.route("/api/references")
+def references():
+    """키워드 클릭 → 등록 사이트 검색 링크 + 관련 이미지(Pexels)."""
+    keyword = (request.args.get("keyword") or "").strip()
+    if not keyword:
+        return jsonify({"error": "키워드가 없습니다."}), 400
+
+    try:
+        config = load_config()
+    except (OSError, ValueError) as exc:
+        return jsonify({"error": f"설정 파일 오류: {exc}"}), 500
+
+    sites = [
+        {"name": s["name"], "search_url": build_search_url(s["search_url"], keyword)}
+        for s in config.get("sites", [])
+    ]
+    images = fetch_keyword_images(
+        keyword, limit=9, timeout=int(config.get("request_timeout", 8))
+    )  # best-effort — 실패해도 []
+
+    return jsonify(
+        {
+            "keyword": keyword,
+            "sites": sites,
+            "images": images,
+            "images_enabled": images_enabled(),
+        }
+    )
 
 
 @app.errorhandler(413)
