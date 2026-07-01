@@ -3,40 +3,35 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>레퍼런스 찾기</title>
+<title>레퍼런스 찾기 — 키워드 추출</title>
 <style>
   :root {
-    --bg: #f7f7fb;
-    --card: #ffffff;
-    --ink: #1a1a2e;
-    --muted: #6b7280;
-    --accent: #4f46e5;
-    --accent-soft: #eef2ff;
-    --border: #e5e7eb;
+    --bg: #f7f7fb; --card: #fff; --ink: #1a1a2e; --muted: #6b7280;
+    --accent: #4f46e5; --accent-soft: #eef2ff; --border: #e5e7eb;
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0; background: var(--bg); color: var(--ink);
+    margin: 0; background: var(--bg); color: var(--ink); line-height: 1.5;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
-    line-height: 1.5;
   }
-  .wrap { max-width: 980px; margin: 0 auto; padding: 32px 20px 80px; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 40px 20px 80px; }
   h1 { font-size: 1.6rem; font-weight: 800; margin: 0 0 4px; }
   .sub { color: var(--muted); margin: 0 0 28px; }
 
   .uploader {
-    background: var(--card); border: 2px dashed var(--border); border-radius: 16px;
-    padding: 28px; text-align: center; transition: border-color .15s, background .15s;
+    display: block; background: var(--card); border: 2px dashed var(--border);
+    border-radius: 16px; padding: 28px; text-align: center; cursor: pointer;
+    transition: border-color .15s, background .15s;
   }
   .uploader.drag { border-color: var(--accent); background: var(--accent-soft); }
-  .uploader input[type=file] { display: none; }
+  .uploader input { display: none; }
   .btn {
     display: inline-block; background: var(--accent); color: #fff; border: 0;
     padding: 11px 20px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: .95rem;
   }
   .btn:disabled { opacity: .5; cursor: not-allowed; }
   .hint { color: var(--muted); font-size: .85rem; margin-top: 10px; }
-  #preview { max-width: 200px; max-height: 200px; border-radius: 12px; margin: 16px auto 0; display: none; }
+  #preview { max-width: 220px; max-height: 220px; border-radius: 12px; margin: 16px auto 0; display: none; }
 
   .status { margin: 24px 0; color: var(--muted); }
   .error {
@@ -44,82 +39,38 @@
     padding: 14px 16px; border-radius: 12px; margin: 24px 0;
   }
 
-  .kw-block { margin-top: 36px; }
-  .kw-title { font-size: 1.15rem; font-weight: 800; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
-  .kw-chip { background: var(--accent-soft); color: var(--accent); padding: 3px 10px; border-radius: 999px; font-size: .8rem; }
-
-  .sites { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-  .card {
-    background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px;
-  }
-  .card-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
-  .card-head .name { font-weight: 800; font-size: 1rem; }
-  .enter-link {
-    display: inline-block; font-weight: 700; color: var(--accent); text-decoration: none;
-    background: var(--accent-soft); padding: 8px 12px; border-radius: 8px; font-size: .88rem;
-  }
-  .enter-link:hover { text-decoration: underline; }
-  .empty { color: var(--muted); font-size: .82rem; margin-top: 12px; font-style: italic; }
-
-  /* 키워드 안내 영역 */
-  .kw-guide { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; margin-top: 28px; }
-  .kw-guide h2 { font-size: .95rem; margin: 0 0 12px; color: var(--muted); font-weight: 700; }
-  .kw-guide .tags { display: flex; flex-wrap: wrap; gap: 8px; }
-  .kw-guide .tag {
-    background: var(--accent-soft); color: var(--accent); font-weight: 700;
-    padding: 6px 14px; border-radius: 999px; font-size: .92rem; cursor: pointer; border: 0;
-  }
-  .kw-guide .tag:hover { background: var(--accent); color: #fff; }
-
-  /* 이미지 결과 영역 */
-  .thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
-  .thumb { display: block; aspect-ratio: 1 / 1; border-radius: 8px; overflow: hidden; background: #eef1f5; border: 1px solid var(--border); }
-  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .thumb:hover { outline: 2px solid var(--accent); }
-
-  .divider { display: flex; align-items: center; gap: 14px; margin: 30px 0 20px; color: var(--muted); font-size: .85rem; }
-  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
-  .kw-input-row { display: flex; gap: 10px; }
-  .kw-input-row input {
-    flex: 1; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
-    font-size: .95rem; background: var(--card); color: var(--ink);
-  }
-  .kw-input-row input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .result { margin-top: 32px; background: var(--card); border: 1px solid var(--border);
+            border-radius: 16px; padding: 22px 24px; display: none; }
+  .result h2 { font-size: 1rem; margin: 0 0 14px; color: var(--muted); font-weight: 700; }
+  .tags { display: flex; flex-wrap: wrap; gap: 10px; }
+  .tag { background: var(--accent-soft); color: var(--accent); font-weight: 700;
+         padding: 8px 16px; border-radius: 999px; font-size: 1rem; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>레퍼런스 찾기</h1>
-  <p class="sub">이미지를 올리면 키워드 5개를 자동으로 뽑고, 등록한 사이트에서 키워드별 상위 이미지를 보여줍니다.</p>
+  <p class="sub">이미지를 올리면 핵심 키워드 5개를 뽑아 드립니다.</p>
 
   <form id="form">
     <label class="uploader" id="drop">
-      <input type="file" id="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp" />
-      <div>
-        <span class="btn" id="pickBtn">이미지 선택</span>
-        <div class="hint">또는 여기로 드래그 · PNG / JPEG / GIF / WebP · 최대 10MB</div>
-        <img id="preview" alt="미리보기" />
-      </div>
+      <input type="file" id="file" accept="image/png,image/jpeg,image/gif,image/webp" />
+      <span class="btn" id="pickBtn">이미지 선택</span>
+      <div class="hint">또는 여기로 드래그 · PNG / JPEG / GIF / WebP · 최대 10MB</div>
+      <img id="preview" alt="미리보기" />
     </label>
     <div style="margin-top:16px; text-align:center;">
-      <button class="btn" id="submit" type="submit" disabled>키워드 뽑고 레퍼런스 찾기</button>
-      <div class="hint">이미지 분석은 Google Gemini 무료 API 사용</div>
+      <button class="btn" id="submit" type="submit" disabled>키워드 뽑기</button>
     </div>
-  </form>
-
-  <div class="divider"><span>또는 무료로 — 키워드 직접 입력</span></div>
-
-  <form id="kwForm">
-    <div class="kw-input-row">
-      <input type="text" id="kwInput" placeholder="예: minimal poster, pastel, bold typography" />
-      <button class="btn" id="kwSubmit" type="submit">검색</button>
-    </div>
-    <div class="hint">콤마(,)로 구분 · API 키 불필요 · 과금 없음</div>
   </form>
 
   <div id="status" class="status" style="display:none;"></div>
   <div id="error" class="error" style="display:none;"></div>
-  <div id="output"></div>
+
+  <div id="result" class="result">
+    <h2>뽑힌 키워드</h2>
+    <div class="tags" id="tags"></div>
+  </div>
 </div>
 
 <script>
@@ -131,26 +82,24 @@
   const form = document.getElementById("form");
   const statusEl = document.getElementById("status");
   const errorEl = document.getElementById("error");
-  const output = document.getElementById("output");
+  const resultEl = document.getElementById("result");
+  const tagsEl = document.getElementById("tags");
 
   pickBtn.addEventListener("click", (e) => { e.preventDefault(); fileInput.click(); });
 
-  function showPreview(file) {
-    if (!file) return;
+  function showPreview(f) {
+    if (!f) return;
     const reader = new FileReader();
     reader.onload = (e) => { preview.src = e.target.result; preview.style.display = "block"; };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(f);
     submitBtn.disabled = false;
   }
-
   fileInput.addEventListener("change", () => showPreview(fileInput.files[0]));
 
   ["dragenter", "dragover"].forEach((ev) =>
-    drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("drag"); })
-  );
+    drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("drag"); }));
   ["dragleave", "drop"].forEach((ev) =>
-    drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("drag"); })
-  );
+    drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("drag"); }));
   drop.addEventListener("drop", (e) => {
     const f = e.dataTransfer.files[0];
     if (f) { fileInput.files = e.dataTransfer.files; showPreview(f); }
@@ -158,125 +107,34 @@
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
-    );
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
-  function slug(s) { return "kw-" + String(s).replace(/[^a-zA-Z0-9]/g, "-").toLowerCase(); }
-
-  function render(data) {
-    output.innerHTML = "";
-    const keywords = data.keywords || [];
-
-    // ① 키워드 안내 영역 (텍스트) — 클릭하면 해당 결과로 스크롤
-    const guide = document.createElement("div");
-    guide.className = "kw-guide";
-    guide.innerHTML =
-      `<h2>뽑힌 키워드 ${keywords.length}개</h2>
-       <div class="tags">` +
-      keywords.map((k) => `<button class="tag" data-target="${slug(k)}">${esc(k)}</button>`).join("") +
-      `</div>`;
-    guide.querySelectorAll(".tag").forEach((btn) =>
-      btn.addEventListener("click", () => {
-        const el = document.getElementById(btn.dataset.target);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-      })
-    );
-    output.appendChild(guide);
-
-    // ② 키워드별 이미지 결과 영역
-    data.results.forEach((block) => {
-      const wrap = document.createElement("div");
-      wrap.className = "kw-block";
-      wrap.id = slug(block.keyword);
-
-      const cards = block.sites.map((site) => {
-        let inner = "";
-        if (site.images && site.images.length) {
-          inner =
-            '<div class="thumbs">' +
-            site.images
-              .map((im) =>
-                `<a class="thumb" href="${esc(im.link)}" target="_blank" rel="noopener" title="${esc(im.title)}">
-                   <img src="${esc(im.image)}" alt="${esc(im.title)}" loading="lazy"
-                        onerror="this.closest('.thumb').style.display='none'" />
-                 </a>`
-              )
-              .join("") +
-            "</div>";
-        } else if (site.image_search_enabled) {
-          inner = '<div class="empty">이 사이트에서 상위 이미지를 찾지 못했습니다 — 위 검색 링크로 직접 확인하세요.</div>';
-        } else {
-          inner = '<div class="empty">이미지 검색이 꺼져 있습니다(Google 키 미설정) — 검색 링크로 확인하세요.</div>';
-        }
-        return `
-          <div class="card">
-            <div class="card-head"><span class="name">${esc(site.name)}</span></div>
-            <a class="enter-link" href="${esc(site.search_url)}" target="_blank" rel="noopener">🔍 이 키워드로 검색 열기 ↗</a>
-            ${inner}
-          </div>`;
-      }).join("");
-
-      wrap.innerHTML = `
-        <div class="kw-title"><span class="kw-chip">키워드</span> ${esc(block.keyword)}</div>
-        <div class="sites">${cards}</div>`;
-      output.appendChild(wrap);
-    });
-  }
-
-  // 공통 요청 처리 (이미지 모드 / 키워드 직접 입력 모드 둘 다 사용)
-  async function run(fetchOpts, statusText) {
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!fileInput.files[0]) return;
     errorEl.style.display = "none";
-    output.innerHTML = "";
+    resultEl.style.display = "none";
+    submitBtn.disabled = true;
     statusEl.style.display = "block";
-    statusEl.textContent = statusText;
+    statusEl.textContent = "이미지 분석 중…";
+
+    const fd = new FormData();
+    fd.append("image", fileInput.files[0]);
     try {
-      const res = await fetch(fetchOpts.url, fetchOpts.init);
+      const res = await fetch("/api/keywords", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "요청 실패");
-      render(data);
+      tagsEl.innerHTML = (data.keywords || [])
+        .map((k) => `<span class="tag">${esc(k)}</span>`).join("");
+      resultEl.style.display = "block";
     } catch (err) {
       errorEl.textContent = "⚠️ " + err.message;
       errorEl.style.display = "block";
     } finally {
       statusEl.style.display = "none";
+      submitBtn.disabled = false;
     }
-  }
-
-  // 이미지 업로드 → Claude 분석
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    if (!fileInput.files[0]) return;
-    const fd = new FormData();
-    fd.append("image", fileInput.files[0]);
-    submitBtn.disabled = true;
-    await run(
-      { url: "/api/search", init: { method: "POST", body: fd } },
-      "이미지 분석 중… (키워드 추출 → 레퍼런스 검색)"
-    );
-    submitBtn.disabled = false;
-  });
-
-  // 키워드 직접 입력 → 무료 (API 키 불필요)
-  const kwForm = document.getElementById("kwForm");
-  const kwInput = document.getElementById("kwInput");
-  const kwSubmit = document.getElementById("kwSubmit");
-  kwForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    if (!kwInput.value.trim()) return;
-    kwSubmit.disabled = true;
-    await run(
-      {
-        url: "/api/search-keywords",
-        init: {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ keywords: kwInput.value }),
-        },
-      },
-      "레퍼런스 검색 중…"
-    );
-    kwSubmit.disabled = false;
   });
 </script>
 </body>

@@ -1,10 +1,10 @@
-"""이미지 → 핵심 키워드 추출 (Google Gemini vision, 무료 API).
+"""이미지 → 핵심 키워드 추출 (Groq vision, 무료 API).
 
-이미지를 Gemini 에 보내 핵심 키워드 N개를 JSON 으로만 받는다.
-무료 한도 안에서 카드 없이 사용 가능. (REST 직접 호출 → 추가 의존성 없음)
+Groq 는 Google 과 무관한 무료 추론 API 로, 간단한 Bearer 키 1개로 쓴다.
+Llama vision 모델에 이미지를 보내 핵심 키워드 N개를 JSON 으로 받는다.
+(OpenAI 호환 chat/completions 형식)
 
-응답이 JSON 으로 오도록 responseMimeType 을 지정하고, 그래도 모델이 코드펜스나
-설명을 붙일 수 있으니 방어적으로 파싱한다.
+모델이 코드펜스나 설명을 붙일 수 있어 응답을 방어적으로 파싱한다.
 """
 
 from __future__ import annotations
@@ -16,11 +16,10 @@ import re
 
 import requests
 
-# 무료 vision 모델 (필요하면 GEMINI_MODEL 환경변수로 교체)
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+# 무료 vision 모델 (필요하면 GROQ_MODEL 환경변수로 교체)
+MODEL = os.getenv("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 
-# 허용 이미지 타입 (콘텐츠타입 → Gemini mime_type)
 SUPPORTED_MEDIA_TYPES = {
     "image/png": "image/png",
     "image/jpeg": "image/jpeg",
@@ -38,10 +37,10 @@ def _build_prompt(n: int) -> str:
     return (
         f"Look at this image and extract exactly {n} short search keywords that best "
         f"describe its visual style, subject, mood, color, and design characteristics. "
-        f"The keywords will be used to search design reference sites like Pinterest and "
-        f"Behance.\n"
+        f"The keywords will be used to search design reference sites.\n"
         f"Rules:\n"
         f'- Respond with JSON only: {{"keywords": ["k1", "k2", ...]}}\n'
+        f"- No markdown, no code fences, no extra text.\n"
         f"- Each keyword: 1-3 words, English, lowercase, search-friendly.\n"
         f"- Exactly {n} keywords."
     )
@@ -81,7 +80,7 @@ def _parse_keywords(text: str, n: int) -> list[str]:
 
 
 def extract_keywords(image_bytes: bytes, media_type: str, *, n: int = 5) -> list[str]:
-    """이미지 바이트에서 키워드 n개를 추출한다 (Gemini).
+    """이미지 바이트에서 키워드 n개를 추출한다 (Groq).
 
     실패 시 KeywordError 를 던진다(호출부에서 잡아 사용자에게 메시지로 전달).
     """
@@ -91,36 +90,40 @@ def extract_keywords(image_bytes: bytes, media_type: str, *, n: int = 5) -> list
             f"지원하지 않는 이미지 타입입니다: {media_type} (지원: PNG, JPEG, WebP, GIF)"
         )
 
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        raise KeywordError("GEMINI_API_KEY 가 설정되지 않았습니다. Render 환경변수를 확인하세요.")
+        raise KeywordError("GROQ_API_KEY 가 설정되지 않았습니다. Render 환경변수를 확인하세요.")
 
     image_b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
+    data_url = f"data:{resolved_type};base64,{image_b64}"
+
     body = {
-        "contents": [
+        "model": MODEL,
+        "messages": [
             {
-                "parts": [
-                    {"inline_data": {"mime_type": resolved_type, "data": image_b64}},
-                    {"text": _build_prompt(n)},
-                ]
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": _build_prompt(n)},
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                ],
             }
         ],
-        "generationConfig": {
-            "temperature": 0.2,
-            "maxOutputTokens": 256,
-            "responseMimeType": "application/json",
-        },
+        "temperature": 0.2,
+        "max_tokens": 256,
     }
 
     try:
         resp = requests.post(
-            ENDPOINT.format(model=MODEL),
-            params={"key": api_key},
+            ENDPOINT,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
             json=body,
             timeout=30,
         )
     except requests.RequestException as exc:
-        raise KeywordError(f"Gemini 호출 실패: {exc}") from exc
+        raise KeywordError(f"Groq 호출 실패: {exc}") from exc
 
     if resp.status_code != 200:
         detail = ""
@@ -128,12 +131,11 @@ def extract_keywords(image_bytes: bytes, media_type: str, *, n: int = 5) -> list
             detail = resp.json().get("error", {}).get("message", "")
         except ValueError:
             detail = resp.text[:200]
-        raise KeywordError(f"Gemini 오류({resp.status_code}): {detail}")
+        raise KeywordError(f"Groq 오류({resp.status_code}): {detail}")
 
     try:
-        data = resp.json()
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
+        text = resp.json()["choices"][0]["message"]["content"]
     except (ValueError, KeyError, IndexError, TypeError) as exc:
-        raise KeywordError("Gemini 응답을 해석하지 못했습니다(차단 또는 빈 응답).") from exc
+        raise KeywordError("Groq 응답을 해석하지 못했습니다.") from exc
 
     return _parse_keywords(text, n)

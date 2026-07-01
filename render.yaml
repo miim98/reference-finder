@@ -11,9 +11,5 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
-      - key: GEMINI_API_KEY
-        sync: false            # 비밀값 → Render 대시보드에서 직접 입력 (이미지→키워드용, 무료 Gemini)
-      - key: GOOGLE_API_KEY
-        sync: false            # 비밀값 → Render 대시보드에서 직접 입력 (키워드별 상위 이미지용)
-      - key: GOOGLE_CSE_ID
-        sync: false            # Programmable Search 검색엔진 ID(cx)
+      - key: GROQ_API_KEY
+        sync: false            # 비밀값 → Render 대시보드에서 직접 입력 (이미지→키워드용, 무료 Groq)
