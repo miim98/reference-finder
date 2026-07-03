@@ -35,27 +35,20 @@ class KeywordError(Exception):
 
 def _build_prompt(n: int) -> str:
     return (
-        f"You are a visual design director. Analyze this image as a DESIGN REFERENCE and "
-        f"produce exactly {n} search keywords a designer would type into Pinterest or Behance to "
-        f"find work with the SAME overall aesthetic, mood, and VISUAL TREATMENT — so the results "
-        f"actually FEEL like this image, not just share one isolated feature.\n\n"
-        f"Describe what defines the look, mixing across these:\n"
-        f"- overall aesthetic / mood / vibe (e.g. ethereal, dreamy, moody, atmospheric, grungy, nostalgic)\n"
-        f"- material & texture quality (e.g. translucent, frosted glass, hazy, misty, grainy, matte, layered)\n"
-        f"- focus / blur / light treatment (e.g. soft focus, motion blur, defocused, diffused light, double exposure)\n"
-        f"- named style / movement (e.g. editorial, brutalist, swiss, y2k, experimental, minimalist)\n"
-        f"- technique / medium (e.g. film photography, risograph, collage, photo manipulation, screen print)\n"
-        f"- typographic treatment / format, if present (e.g. experimental typography, poster layout, text overlay, monospaced type)\n\n"
+        f"Someone wants to find MORE images that look like this one — the same style, mood, "
+        f"treatment, and overall feel — by searching Pinterest, Behance, or Google Images.\n\n"
+        f"Answer this question: \"What should I search to find images that look like this?\"\n"
+        f"Give the {n} best search queries that would return visually SIMILAR-looking results.\n\n"
         f"Rules:\n"
-        f"- Prefer EVOCATIVE 2-3 word phrases that COMBINE an effect with a subject/format — e.g. "
-        f'"hazy portrait poster", "frosted glass texture", "ethereal blur aesthetic", '
-        f'"atmospheric typography", "grainy film poster". These retrieve similar-feeling work far '
-        f"better than single atomic words like 'blur' or 'grain'.\n"
-        f"- Capture the actual FEELING and atmosphere of the image as a whole.\n"
-        f"- NO near-duplicates (don't repeat the same idea twice, e.g. not both 'typewriter font' and 'typewriter style').\n"
-        f"- English, lowercase, search-friendly.\n"
-        f'- Respond with JSON only: {{"keywords": ["k1", "k2", ...]}} — no markdown, no extra text.\n'
-        f"- Exactly {n} keywords."
+        f"- Each query is the actual words a person would type (1-4 words) to get results that "
+        f"look and feel like this image.\n"
+        f"- Together they should cover the look well (style, mood, texture, technique, composition) "
+        f"— vary them, no near-duplicates, don't split one idea into two.\n"
+        f"- Describe the LOOK, not the literal subject or any text written in the image.\n"
+        f"- Order from the query most likely to return similar images to least.\n"
+        f"- English, lowercase.\n"
+        f'- Respond with JSON only: {{"keywords": ["q1", "q2", ...]}} — no markdown, no extra text.\n'
+        f"- Exactly {n} queries."
     )
 
 
