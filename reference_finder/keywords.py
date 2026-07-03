@@ -35,13 +35,21 @@ class KeywordError(Exception):
 
 def _build_prompt(n: int) -> str:
     return (
-        f"Look at this image and extract exactly {n} short search keywords that best "
-        f"describe its visual style, subject, mood, color, and design characteristics. "
-        f"The keywords will be used to search design reference sites.\n"
+        f"You are a visual design director. Analyze this image as a DESIGN REFERENCE and "
+        f"produce exactly {n} short search keywords a designer would type into Pinterest or "
+        f"Behance to find visually and stylistically SIMILAR design work.\n\n"
+        f"Focus on the design characteristics, NOT the literal objects in the image:\n"
+        f"- aesthetic / style movement (e.g. swiss design, y2k, brutalist, editorial, retro)\n"
+        f"- color palette / treatment (e.g. muted earth tones, duotone, pastel gradient, high contrast)\n"
+        f"- typography style, if any (e.g. bold serif, condensed sans, expressive type)\n"
+        f"- layout / composition (e.g. grid layout, asymmetric, negative space, poster layout)\n"
+        f"- mood / texture / medium (e.g. grainy, collage, minimal, risograph, 3d render)\n\n"
         f"Rules:\n"
-        f'- Respond with JSON only: {{"keywords": ["k1", "k2", ...]}}\n'
-        f"- No markdown, no code fences, no extra text.\n"
-        f"- Each keyword: 1-3 words, English, lowercase, search-friendly.\n"
+        f"- Use descriptive DESIGN phrases (1-3 words) that work as search queries — NOT single "
+        f"generic adjectives like 'cold' or 'nice'.\n"
+        f"- Make them diverse: cover style, color, typography, layout, and mood. No duplicates.\n"
+        f"- English, lowercase, search-friendly.\n"
+        f'- Respond with JSON only: {{"keywords": ["k1", "k2", ...]}} — no markdown, no extra text.\n'
         f"- Exactly {n} keywords."
     )
 
@@ -108,8 +116,8 @@ def extract_keywords(image_bytes: bytes, media_type: str, *, n: int = 5) -> list
                 ],
             }
         ],
-        "temperature": 0.2,
-        "max_tokens": 256,
+        "temperature": 0.4,
+        "max_tokens": 300,
     }
 
     try:
