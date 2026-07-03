@@ -29,6 +29,21 @@ _OG_PATTERNS = [
     r'<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\']([^"\']+)',
 ]
 
+# 실제 콘텐츠가 아닌 기본/placeholder OG 이미지 (Pinterest·Savee 등이 봇에게 주는 로고)
+_PLACEHOLDER_MARKERS = (
+    "default_open_graph",
+    "default-og-image",
+    "default-og",
+    "og-default",
+    "og_default",
+    "/default_",
+)
+
+
+def _is_placeholder(url: str) -> bool:
+    low = url.lower()
+    return any(m in low for m in _PLACEHOLDER_MARKERS)
+
 
 def _ddg_links(keyword: str, domain: str, limit: int, timeout: int) -> list[str]:
     """DuckDuckGo HTML 검색으로 site:domain 상위 결과 링크(중복 제거)."""
@@ -71,7 +86,8 @@ def _og_image(url: str, timeout: int) -> str | None:
     for pat in _OG_PATTERNS:
         m = re.search(pat, page, re.IGNORECASE)
         if m:
-            return html_mod.unescape(m.group(1))
+            img = html_mod.unescape(m.group(1))
+            return None if _is_placeholder(img) else img
     return None
 
 
