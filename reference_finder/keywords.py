@@ -36,21 +36,24 @@ class KeywordError(Exception):
 def _build_prompt(n: int) -> str:
     return (
         f"You are a visual design director. Analyze this image as a DESIGN REFERENCE and "
-        f"produce exactly {n} short search keywords a designer would type into Pinterest or "
-        f"Behance to find work in the SAME STYLE made with the SAME TECHNIQUES.\n\n"
-        f"Prioritize these two categories (most of the {n} keywords should come from here):\n"
-        f"1) STYLE — named aesthetics / design movements / genres. "
-        f"(e.g. swiss design, brutalist, y2k, bauhaus, memphis, art deco, vaporwave, "
-        f"editorial design, maximalist, retro futurism, acid graphics, minimalism)\n"
-        f"2) TECHNIQUE / MEDIUM — how it was made or rendered. "
-        f"(e.g. risograph, halftone, collage, photo manipulation, 3d render, isometric, "
-        f"gradient mesh, cut-out paper, line art, glitch, double exposure, film grain, "
-        f"screen print, vector illustration, hand-drawn)\n\n"
+        f"produce exactly {n} search keywords a designer would type into Pinterest or Behance to "
+        f"find work with the SAME overall aesthetic, mood, and VISUAL TREATMENT — so the results "
+        f"actually FEEL like this image, not just share one isolated feature.\n\n"
+        f"Describe what defines the look, mixing across these:\n"
+        f"- overall aesthetic / mood / vibe (e.g. ethereal, dreamy, moody, atmospheric, grungy, nostalgic)\n"
+        f"- material & texture quality (e.g. translucent, frosted glass, hazy, misty, grainy, matte, layered)\n"
+        f"- focus / blur / light treatment (e.g. soft focus, motion blur, defocused, diffused light, double exposure)\n"
+        f"- named style / movement (e.g. editorial, brutalist, swiss, y2k, experimental, minimalist)\n"
+        f"- technique / medium (e.g. film photography, risograph, collage, photo manipulation, screen print)\n"
+        f"- typographic treatment / format, if present (e.g. experimental typography, poster layout, text overlay, monospaced type)\n\n"
         f"Rules:\n"
-        f"- Favor concrete STYLE names and TECHNIQUE/medium terms. Avoid vague adjectives "
-        f"(cold, nice, beautiful) and avoid plain color-only words.\n"
-        f"- Each: 1-3 words, English, lowercase, works as a search query.\n"
-        f"- No duplicates.\n"
+        f"- Prefer EVOCATIVE 2-3 word phrases that COMBINE an effect with a subject/format — e.g. "
+        f'"hazy portrait poster", "frosted glass texture", "ethereal blur aesthetic", '
+        f'"atmospheric typography", "grainy film poster". These retrieve similar-feeling work far '
+        f"better than single atomic words like 'blur' or 'grain'.\n"
+        f"- Capture the actual FEELING and atmosphere of the image as a whole.\n"
+        f"- NO near-duplicates (don't repeat the same idea twice, e.g. not both 'typewriter font' and 'typewriter style').\n"
+        f"- English, lowercase, search-friendly.\n"
         f'- Respond with JSON only: {{"keywords": ["k1", "k2", ...]}} — no markdown, no extra text.\n'
         f"- Exactly {n} keywords."
     )
