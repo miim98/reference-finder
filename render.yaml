@@ -13,5 +13,4 @@ services:
         value: 3.11.9
       - key: GROQ_API_KEY
         sync: false            # 비밀값 → Render 대시보드에서 직접 입력 (이미지→키워드용, 무료 Groq)
-      - key: PEXELS_API_KEY
-        sync: false            # 비밀값 → 키워드별 관련 이미지용 (무료 Pexels). 없으면 검색 링크만.
+        # (키워드별 사이트 이미지는 DuckDuckGo 검색+OG로 가져오므로 추가 키 불필요)

@@ -11,7 +11,7 @@ import os
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 
-from reference_finder.images import fetch_keyword_images, images_enabled
+from reference_finder.images import fetch_references
 from reference_finder.keywords import KeywordError, extract_keywords
 from reference_finder.sites import build_search_url, load_config
 
@@ -62,22 +62,22 @@ def references():
     except (OSError, ValueError) as exc:
         return jsonify({"error": f"설정 파일 오류: {exc}"}), 500
 
-    sites = [
-        {"name": s["name"], "search_url": build_search_url(s["search_url"], keyword)}
+    sites_cfg = [
+        {
+            "name": s["name"],
+            "domain": s.get("domain"),
+            "search_url": build_search_url(s["search_url"], keyword),
+        }
         for s in config.get("sites", [])
     ]
-    images = fetch_keyword_images(
-        keyword, limit=9, timeout=int(config.get("request_timeout", 8))
-    )  # best-effort — 실패해도 []
+    site_results = fetch_references(
+        keyword,
+        sites_cfg,
+        per_site=int(config.get("results_per_site", 3)),
+        timeout=int(config.get("request_timeout", 8)),
+    )  # best-effort — 이미지 비어도 검색 링크는 유지
 
-    return jsonify(
-        {
-            "keyword": keyword,
-            "sites": sites,
-            "images": images,
-            "images_enabled": images_enabled(),
-        }
-    )
+    return jsonify({"keyword": keyword, "sites": site_results})
 
 
 @app.errorhandler(413)

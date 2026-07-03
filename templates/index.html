@@ -55,10 +55,12 @@
   .kwlist button:hover { border-color: var(--accent); }
   .kwlist button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-  .sites { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .site-block { margin-bottom: 22px; }
+  .site-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .site-head .name { font-weight: 800; font-size: 1rem; }
   .site-link {
-    text-decoration: none; font-weight: 700; font-size: .85rem; color: var(--accent);
-    background: var(--accent-soft); padding: 8px 13px; border-radius: 8px;
+    text-decoration: none; font-weight: 700; font-size: .82rem; color: var(--accent);
+    background: var(--accent-soft); padding: 7px 12px; border-radius: 8px;
   }
   .site-link:hover { background: var(--accent); color: #fff; }
 
@@ -152,26 +154,24 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "요청 실패");
 
-      const siteLinks = (data.sites || [])
-        .map((s) => `<a class="site-link" href="${esc(s.search_url)}" target="_blank" rel="noopener">🔍 ${esc(s.name)}</a>`)
-        .join("");
+      const blocks = (data.sites || []).map((s) => {
+        let inner;
+        if (s.images && s.images.length) {
+          inner = '<div class="thumbs">' + s.images.map((im) =>
+            `<a class="thumb" href="${esc(im.link)}" target="_blank" rel="noopener">
+               <img src="${esc(im.image)}" alt="" loading="lazy"
+                    onerror="this.closest('.thumb').style.display='none'" /></a>`).join("") + "</div>";
+        } else {
+          inner = '<div class="empty">상위 이미지를 못 가져왔어요 — 검색 열기로 확인하세요.</div>';
+        }
+        return `<div class="site-block">
+            <div class="site-head">
+              <span class="name">${esc(s.name)}</span>
+              <a class="site-link" href="${esc(s.search_url)}" target="_blank" rel="noopener">🔍 검색 열기 ↗</a>
+            </div>${inner}</div>`;
+      }).join("");
 
-      let imgHtml;
-      if (data.images && data.images.length) {
-        imgHtml =
-          '<div class="imglabel">관련 이미지</div><div class="thumbs">' +
-          data.images.map((im) =>
-            `<a class="thumb" href="${esc(im.link)}" target="_blank" rel="noopener" title="${esc(im.title)}">
-               <img src="${esc(im.image)}" alt="${esc(im.title)}" loading="lazy"
-                    onerror="this.closest('.thumb').style.display='none'" /></a>`).join("") +
-          "</div>";
-      } else if (data.images_enabled) {
-        imgHtml = '<div class="empty">관련 이미지를 찾지 못했습니다.</div>';
-      } else {
-        imgHtml = '<div class="empty">이미지를 보려면 PEXELS_API_KEY가 필요합니다. (위 사이트 검색은 바로 됩니다)</div>';
-      }
-
-      rightEl.innerHTML = `<div class="sites">${siteLinks}</div>${imgHtml}`;
+      rightEl.innerHTML = blocks || '<div class="empty">등록된 사이트가 없습니다.</div>';
     } catch (err) {
       rightEl.innerHTML = `<div class="empty">⚠️ ${esc(err.message)}</div>`;
     }
