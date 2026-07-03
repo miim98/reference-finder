@@ -81,7 +81,7 @@
 <body>
 <div class="wrap">
   <h1>레퍼런스 찾기</h1>
-  <p class="sub">이미지를 올리면 키워드 5개를 뽑고, 키워드를 누르면 관련 레퍼런스를 보여줍니다.</p>
+  <p class="sub">이미지를 올리면 키워드 8개를 뽑고, 키워드를 누르면 관련 레퍼런스를 보여줍니다.</p>
 
   <form id="form">
     <label class="uploader" id="drop">
@@ -164,7 +164,6 @@
           // 이미지 카드: 클릭하면 결과 페이지로. 이미지 로드 실패해도 카드는 클릭 가능하게 라벨만 남김.
           cards = s.images.map((im) =>
             `<a class="card" href="${esc(im.link)}" target="_blank" rel="noopener">
-               <span class="label">${esc(s.name)} ↗</span>
                <img src="${esc(im.image)}" alt="" loading="lazy" onerror="this.remove()" />
              </a>`).join("");
         } else {

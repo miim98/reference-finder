@@ -43,7 +43,7 @@ def keywords():
         return jsonify({"error": "GROQ_API_KEY 가 없습니다. Render 환경변수를 확인하세요."}), 500
 
     try:
-        result = extract_keywords(image_bytes, media_type, n=5)
+        result = extract_keywords(image_bytes, media_type, n=8)
     except KeywordError as exc:
         return jsonify({"error": str(exc)}), 502
 
