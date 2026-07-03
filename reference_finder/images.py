@@ -16,11 +16,54 @@ from concurrent.futures import ThreadPoolExecutor
 import requests
 
 ENDPOINT = "https://google.serper.dev/images"
+LENS_ENDPOINT = "https://google.serper.dev/lens"
 
 
 def images_enabled() -> bool:
     """Serper 키가 설정돼 있는지."""
     return bool(os.getenv("SERPER_API_KEY"))
+
+
+def reverse_image_search(image_url: str, *, limit: int = 30, timeout: int = 25) -> list[dict]:
+    """업로드 이미지 URL로 역방향 이미지 검색(Serper Lens) → 시각적으로 비슷한 이미지 목록.
+
+    반환: [{"image", "link", "title", "source"}, ...] (실패하면 빈 리스트)
+    """
+    api_key = os.getenv("SERPER_API_KEY")
+    if not api_key or not image_url:
+        return []
+
+    try:
+        resp = requests.post(
+            LENS_ENDPOINT,
+            headers={"X-API-KEY": api_key, "Content-Type": "application/json"},
+            json={"url": image_url},
+            timeout=timeout,
+        )
+        if resp.status_code != 200:
+            return []
+        data = resp.json()
+    except (requests.RequestException, ValueError):
+        return []
+
+    out: list[dict] = []
+    seen: set[str] = set()
+    for it in (data.get("organic") or []):
+        image = it.get("imageUrl") or it.get("thumbnailUrl")
+        if not image or image in seen:
+            continue
+        seen.add(image)
+        out.append(
+            {
+                "image": image,
+                "link": it.get("link") or image,
+                "title": it.get("title") or "",
+                "source": it.get("source") or "",
+            }
+        )
+        if len(out) >= limit:
+            break
+    return out
 
 
 def _site_images(keyword: str, domain: str | None, limit: int, timeout: int) -> list[dict]:
