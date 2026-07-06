@@ -90,7 +90,11 @@ def reverse():
 
     # 2) 역방향 이미지 검색
     results = reverse_image_search(public_url, limit=30, timeout=25)
-    return jsonify({"images": results})
+    debug = request.args.get("debug") == "1"
+    payload = {"images": results}
+    if debug:
+        payload["debug_url"] = public_url
+    return jsonify(payload)
 
 
 @app.errorhandler(413)
