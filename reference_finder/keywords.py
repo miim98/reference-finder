@@ -17,7 +17,7 @@ import re
 import requests
 
 # 무료 vision 모델 (필요하면 GROQ_MODEL 환경변수로 교체)
-MODEL = os.getenv("GROQ_MODEL", "meta-llama/llama-4-maverick-17b-128e-instruct")
+MODEL = os.getenv("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 
 SUPPORTED_MEDIA_TYPES = {
