@@ -89,7 +89,7 @@ def reverse():
     public_url = f"{scheme}://{host}/uploads/{name}"
 
     # 2) 역방향 이미지 검색
-    results = reverse_image_search(public_url, limit=30, timeout=25)
+    results = reverse_image_search(public_url, limit=40, timeout=20)
     debug = request.args.get("debug") == "1"
     payload = {"images": results}
     if debug:
