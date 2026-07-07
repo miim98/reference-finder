@@ -18,6 +18,18 @@ import requests
 ENDPOINT = "https://google.serper.dev/images"
 LENS_ENDPOINT = "https://google.serper.dev/lens"
 
+# 역방향 검색 결과에서 걸러낼 쇼핑/마켓플레이스 도메인 (디자인 레퍼런스와 무관)
+_BLOCKED_DOMAINS = (
+    "amazon.", "aliexpress.", "temu.com", "alibaba.com", "1688.com", "ebay.",
+    "walmart.", "etsy.com", "wish.com", "shopee.", "lazada.", "coupang.com",
+    "aliimg.com", "made-in-china.com", "dhgate.com", "wayfair.", "target.com",
+)
+
+
+def _is_blocked(link: str) -> bool:
+    low = link.lower()
+    return any(b in low for b in _BLOCKED_DOMAINS)
+
 
 def images_enabled() -> bool:
     """Serper 키가 설정돼 있는지."""
@@ -49,14 +61,18 @@ def reverse_image_search(image_url: str, *, limit: int = 30, timeout: int = 25) 
     out: list[dict] = []
     seen: set[str] = set()
     for it in (data.get("organic") or []):
-        image = it.get("imageUrl") or it.get("thumbnailUrl")
-        if not image or image in seen:
+        link = it.get("link") or ""
+        # 안 깨지는 gstatic 썸네일 우선 (표시용). 링크는 원본 페이지.
+        image = it.get("thumbnailUrl") or it.get("imageUrl")
+        if not image or not link or image in seen:
+            continue
+        if _is_blocked(link):  # 쇼핑/마켓 결과 제외
             continue
         seen.add(image)
         out.append(
             {
                 "image": image,
-                "link": it.get("link") or image,
+                "link": link,
                 "title": it.get("title") or "",
                 "source": it.get("source") or "",
             }
