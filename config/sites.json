@@ -2,6 +2,7 @@
   "max_keywords": 5,
   "results_per_site": 10,
   "request_timeout": 8,
+  "recency": "y",
   "sites": [
     {
       "name": "Pinterest",

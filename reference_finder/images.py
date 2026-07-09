@@ -82,17 +82,26 @@ def reverse_image_search(image_url: str, *, limit: int = 30, timeout: int = 25) 
     return out
 
 
-def _site_images(keyword: str, domain: str | None, limit: int, timeout: int) -> list[dict]:
-    """특정 사이트에서 키워드로 검색한 상위 이미지 결과."""
+def _site_images(
+    keyword: str, domain: str | None, limit: int, timeout: int, recency: str = ""
+) -> list[dict]:
+    """특정 사이트에서 키워드로 검색한 상위 이미지 결과.
+
+    recency: "" 이면 전체 기간, "y"/"m"/"w" 면 최근 1년/1개월/1주 결과 우선(옛날 것 배제).
+    """
     api_key = os.getenv("SERPER_API_KEY")
     if not api_key or not domain:
         return []
+
+    body: dict = {"q": f"{keyword} site:{domain}", "num": max(1, min(int(limit), 10))}
+    if recency:
+        body["tbs"] = f"qdr:{recency}"  # Google 시간 필터 (최근 것 우선)
 
     try:
         resp = requests.post(
             ENDPOINT,
             headers={"X-API-KEY": api_key, "Content-Type": "application/json"},
-            json={"q": f"{keyword} site:{domain}", "num": max(1, min(int(limit), 10))},
+            json=body,
             timeout=timeout,
         )
         if resp.status_code != 200:
@@ -117,14 +126,16 @@ def fetch_references(
     *,
     per_site: int = 3,
     timeout: int = 8,
+    recency: str = "",
 ) -> list[dict]:
     """키워드에 대해 사이트별 상위 레퍼런스(이미지 + 링크)를 병렬로 수집.
 
     sites: [{"name", "domain", "search_url"}, ...] (search_url 은 이미 완성된 링크)
+    recency: "" 전체 / "y","m","w" 최근 우선.
     반환:  [{"name", "search_url", "images": [{"image", "link"}, ...]}, ...]
     """
     def _work(site: dict) -> dict:
-        images = _site_images(keyword, site.get("domain"), per_site, timeout)
+        images = _site_images(keyword, site.get("domain"), per_site, timeout, recency)
         return {"name": site["name"], "search_url": site["search_url"], "images": images}
 
     if not sites:

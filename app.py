@@ -139,6 +139,7 @@ def references():
         sites_cfg,
         per_site=int(config.get("results_per_site", 10)),
         timeout=int(config.get("request_timeout", 8)),
+        recency=str(config.get("recency", "")),
     )
     return jsonify({"keyword": keyword, "sites": site_results})
 
